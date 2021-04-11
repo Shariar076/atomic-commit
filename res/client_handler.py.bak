@@ -1,0 +1,18 @@
+from socket import socket, AF_INET, SOCK_STREAM
+from threading import Thread
+
+
+class ClientHandler(Thread):
+    def __init__(self, index, address, port):
+        Thread.__init__(self)
+        self.index = index
+        self.sock = socket(AF_INET, SOCK_STREAM)
+        self.sock.connect((address, port))
+        self.valid = True
+
+    def run(self):
+        while True:
+            a = 1  # do something
+
+    def send_str(self, msg):
+        self.sock.send((str(msg) + '\n').encode('utf-8'))
