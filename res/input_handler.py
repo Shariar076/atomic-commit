@@ -1,6 +1,8 @@
 import sys
 from threading import Thread
 import res.globals
+from res.globals import bcolors
+
 
 class InputHandler(Thread):
     def __init__(self):
@@ -11,10 +13,15 @@ class InputHandler(Thread):
             line = ''
             try:
                 line = sys.stdin.readline()
-            except:  # keyboard exception, such as Ctrl+C/D
-                exit()
-            if line == '':  # end of a file
-                exit()
-            line = line.strip()
+            except Exception as ex:  # keyboard exception, such as Ctrl+C/D
+                print(f"{bcolors.FAIL}InputHandler Received Exception: {ex}{bcolors.ENDC}")
+                # exit()
 
-            res.globals.client.inputs = line
+            line = line.rstrip()
+            if line == 'playlist':
+                res.globals.client.print_playlist()
+            elif line == 'vetonext':
+                print(f"{bcolors.WARNING}Process will vote No on the next vote-req.{bcolors.ENDC}")
+                res.globals.client.flags['vetonext'] = True
+            else:
+                print(f"{bcolors.WARNING}Unrecognized command: {line}.{bcolors.ENDC}")

@@ -4,53 +4,31 @@ import threading
 
 from res.globals import bcolors
 
+
 class Client:
-    def __init__(self, pid, num_procs, send, c_t_vote_req, c_t_prec, c_t_c, p_t_vote, p_t_acks):
-        # Array of processes that we think are alive.
+    def __init__(self, pid, num_procs, send, p_t_vote, p_t_acks):
         self.alive = [pid]
-        # True if a process restarts
         self.stupid = False
-        # Unknown coordinator.
         self.coordinator = None
-        # Internal hash table of URL : song_name.
         self.data = {}
-        # Flags to crash at a certain moment, or to vote no.
         self.flags = {}
-        # Process id.
         self.id = pid
-        # Single global lock.
         self.lock = threading.Lock()
         self.logfile = '%dlog.p' % pid
-        # Message to send. Possible values are:
-        # abort, ack, commit, just-woke, state-resp, state-req, ur-elected,
-        # vote-no, vote-req, vote-yes
         self.message = 'state-req'
-        # Total number of processes (not including master).
         self.N = num_procs
-        # Send functionL
         self.send = send
-        # All known information about current transaction.
         self.transaction = {'number': 0,
                             'song': None,
                             'state': 'committed',
                             'action': None,
                             'URL': None}
+        self.transaction_list = []
         self.num_messages_received_for_election = 0
-
-        # Timeouts
-        self.c_t_vote_req = c_t_vote_req
-        self.c_t_prec = c_t_prec
-        self.c_t_c = c_t_c
         self.p_t_vote = p_t_vote
         self.p_t_acks = p_t_acks
-        # Alive list for re-election protocol
         self.election_alive_list = [pid]
-        # Wait for a vote-req
-        self.c_t_vote_req.restart()
 
-        self.inputs = None
-
-    # Returns internal state as a dictionary.
     def simple_dict(self):
         return {'alive': self.alive,
                 'coordinator': self.coordinator,
@@ -60,25 +38,20 @@ class Client:
                 'message': self.message,
                 'transaction': self.transaction}
 
-    # Should be called immediately after constructor.
     def load_state(self):
         print(f'{bcolors.OKGREEN}Process {self.id} alive for the first time{bcolors.ENDC}')
-        # Find out who is alive and who is the coordinator.
         self.alive = self.broadcast()
-        # Self is the first process to be started.
         if len(self.alive) == 1:
             self.coordinator = self.id
-            # Tell master this process is now coordinator.
             self.send([-1], f'coordinator {self.id}')
 
     def re_election_protocol(self):
         with self.lock:
-            print(f'{bcolors.OKGREEN}starting re-election{bcolors.ENDC}')
+            print(f'{bcolors.OKGREEN}Starting re-election{bcolors.ENDC}')
             self.num_messages_received_for_election = 0
             self.message = 'lets-elect-coordinator'
             self.election_alive_list = self.broadcast()
 
-            # If alive item not present in election_alive, remove from alive
             for p in self.alive:
                 if p not in self.election_alive_list:
                     self.alive.remove(p)
@@ -89,103 +62,76 @@ class Client:
             self.send(self.alive, self.message_str())
             self.log()
 
-    # Broadcasts message corresponding to state and returns all live recipients.
-    # The broadcast goes to all messages, including the sender.
-    # NOT thread-safe.
     def broadcast(self):
         recipients = range(self.N)  # PID of all processes.
         message = self.message_str()  # Serialize self.
         return self.send(recipients, message)
 
-    # Writes state to log.
-    # NOT thread-safe.
     def log(self):
         pass
 
-    # Returns a serialized version of self's state. Since in this assignment,
-    # an objects state will easily be captured in at most 300B, smaller than
-    # the standard size of a TCP block, there is no cost incurred by including
-    # possibly unnecessary information in every message.
-    # NOT thread safe.
     def message_str(self):
         to_send = self.simple_dict()
         result = json.dumps(to_send)
         return result
 
-    # Called when self receives a message s from the master.
-    # IS thread-safe.
+    def print_playlist(self):
+        print(f'{bcolors.OKGREEN}Current playlist of pid {self.id}: {self.data}{bcolors.ENDC}')
+
+    def print_transactions(self):
+        print(f'{bcolors.OKGREEN}Current transactions by pid {self.id}: {self.transaction_list}{bcolors.ENDC}')
+
     def receive_master(self, s):
-        print(f'{bcolors.OKGREEN}received from master: {str(s)}{bcolors.ENDC}')
+        print(f'{bcolors.OKGREEN}Received from master: {str(s)}{bcolors.ENDC}')
         with self.lock:
             parts = s.split()
-            # Begin three-phase commit.
-            if parts[0] in ['add', 'delete']:
+            if parts[0] in ['add', 'edit', 'delete']:
                 if self.coordinator == self.id:
                     self.transaction = {'number': self.transaction['number'] + 1,
                                         'song': parts[1],
                                         'state': 'uncertain',
                                         'action': parts[0],
-                                        'URL': parts[2] if parts[0] == 'add' else None}
+                                        'URL': parts[2] if parts[0] in ['add', 'edit'] else None}
                     self.message = 'vote-req'
                     self.acks = {}
                     self.votes = {}
                     if 'crashVoteREQ' in self.flags:
-                        # If this code executes, the coordinator will crash.
                         self.send(self.flags['crashVoteREQ'], self.message_str())
                         del self.flags['crashVoteREQ']
                         self.log()
                         os._exit(1)
                     else:
-                        # Alive = set of processes that received the vote request.
                         self.alive = self.broadcast()
-                        print('self alive = ' + str(self.alive))
+                        print(f'{bcolors.OKGREEN}Self alive = {self.alive}{bcolors.ENDC}')
                         self.log()
-                        # Wait for votes
                         self.p_t_vote.restart()
                 else:
                     self.send([-1], 'ack abort')
             elif parts[0] == 'crash':
                 os._exit(1)
-            elif parts[0] in ['crashAfterAck', 'crashAfterVote']:
-                self.flags[parts[0]] = True
-            elif parts[0] in ['crashPartialCommit',
-                              'crashPartialPreCommit',
-                              'crashVoteREQ']:
-                # Flag maps to list of process id's.
-                self.flags[parts[0]] = map(int, parts[1:])
-                print(f"..........{self.flags[parts[0]]}...........")
-            # If we have the song
+
             elif parts[0] == 'get':
                 if parts[1] in self.data:
-                    # Send song URL to master.
                     url = self.data[parts[1]]
                     self.send([-1], 'resp ' + url)
                 else:
                     self.send([-1], 'resp NONE')
-            elif parts[0] == 'vote' and parts[1] == 'NO':
-                self.flags['vote NO'] = True
-        print(f'{bcolors.OKGREEN}end receive_master{bcolors.ENDC}')
+            # elif parts[0] == 'vote' and parts[1] == 'NO':
+            #     self.flags['vote NO'] = True
+        print(f'{bcolors.OKGREEN}End receive_master{bcolors.ENDC}')
 
-    # Called when self receives message from another backend server.
-    # IS thread-safe.
     def receive(self, s):
-        print(f'{bcolors.OKGREEN}receive {s}{bcolors.ENDC}')
+        print(f'{bcolors.OKGREEN}{bcolors.BOLD}Received from process {s}{bcolors.ENDC}')
         with self.lock:
             m = json.loads(s)
-            # Only pay attention to abort if in middle of transaction.
+
             if m['message'] == 'abort' and self.transaction['state'] not in ['aborted', 'committed']:
                 self.transaction['state'] = 'abort'
                 self.log()
-                # No longer need to wait for precommit.
-                self.c_t_prec.suspend()
-                # Wait for next vote request.
-                self.c_t_vote_req.restart()
-            # Only pay attention to acks if you are the coordinator.
+
             if m['message'] == 'ack' and self.id == self.coordinator and self.transaction['state'] == 'precommitted':
                 self.acks[m['id']] = True
-                # All live processes have acked.
                 if len(self.acks) == len(self.alive):
-                    # Stop waiting for acks
                     self.p_t_acks.suspend()
                     self.message = 'commit'
                     self.log()
@@ -196,21 +142,23 @@ class Client:
                     else:
                         self.send(self.alive, self.message_str())
                     self.send([-1], 'ack commit')
-            # Even the coordinator only updates data on receipt of commit.
-            # Should only receive this emssage if internal state is precommitted.
+
             if m['message'] == 'commit' and self.transaction['state'] == 'precommitted':
-                # No longer wait for commit.
-                self.c_t_c.suspend()
                 if m['transaction']['action'] == 'add':
-                    self.data[m['transaction']['song']] = m['transaction']['URL']
+                    if m['transaction']['song'] not in self.data:
+                        self.data[m['transaction']['song']] = m['transaction']['URL']
+                        self.transaction_list.append(m['transaction'])
+
+                elif m['transaction']['action'] == 'edit':
+                    if m['transaction']['song'] in self.data:
+                        self.data[m['transaction']['song']] = m['transaction']['URL']
+                        self.transaction_list.append(m['transaction'])
                 else:
                     del self.data[m['transaction']['song']]
+                    self.transaction_list.append(m['transaction'])
                 self.log()
-                # Wait for next vote request.
-                self.c_t_vote_req.restart()
+
             if m['message'] == 'precommit':
-                # No longer need to wait for precommit.
-                self.c_t_prec.suspend()
                 self.message = 'ack'
                 self.transaction['state'] = 'precommitted'
                 self.send([self.coordinator], self.message_str())
@@ -218,63 +166,47 @@ class Client:
                 if 'crashAfterAck' in self.flags:
                     del self.flags['crashAfterAck']
                     os._exit(1)
-                # Wait for commit.
-                self.c_t_c.restart()
+
             if m['message'] == 'state-req':
                 self.message = 'state-resp'
                 stuff = self.send([m['id']], self.message_str())
             if m['message'] == 'state-resp':
-                # Self tried to learn state, didn't crash during a transaction.
                 if self.transaction['state'] in ['committed', 'aborted']:
-                    # Only update internal state if sender knows more than self.
-                    if self.transaction['number'] <= m['transaction']['number'] and isinstance(m['coordinator'],
-                                                                                               (int, int)):
+                    if self.transaction['number'] <= m['transaction']['number'] \
+                            and isinstance(m['coordinator'], (int, int)):
                         self.coordinator = m['coordinator']
                         self.data = m['data']
                         self.transaction = m['transaction']
-                # Self crashed during a transaction.
                 else:
                     # TODO: recovery code here.
                     pass
-            if m['message'] == 'ur-elected':
-                # TODO: termination protocol
-                pass
-            # Assume we only receive this correctly.
+
             if m['message'] == 'vote-req':
-                print(f'{bcolors.OKGREEN}received vote-req{bcolors.ENDC}')
-                # Restart timeout counter
-                self.c_t_vote_req.suspend()
+                print(f'{bcolors.OKGREEN}Received vote-req{bcolors.ENDC}')
                 self.transaction = m['transaction']
                 # self.alive = m['alive']
-                if 'vote NO' in self.flags:
+                if 'vetonext' in self.flags:
                     self.message = 'vote-no'
                     self.transaction['state'] = 'aborted'
-                    # Clear your flag for the next transaction.
-                    del self.flags['vote NO']
-                    # Wait for next transaction.
-                    self.c_t_vote_req.restart()
+                    del self.flags['vetonext']
                 else:
-                    print(f'{bcolors.OKGREEN}voting yes{bcolors.ENDC}')
+                    print(f'{bcolors.OKGREEN}Voting yes{bcolors.ENDC}')
                     self.message = 'vote-yes'
-                    # Wait for a precommit
-                    self.c_t_prec.restart()
                 self.log()
                 self.send([m['id']], self.message_str())
                 if 'crashAfterVote' in self.flags and self.id != self.coordinator:
                     del self.flags['crashAfterVote']
                     os._exit(1)
-            # Only accept no votes if you're the coordinator.
+
             if m['message'] == 'vote-no' and self.id == self.coordinator:
                 self.p_t_vote.suspend()
                 self.message = 'abort'
                 self.transaction['state'] = 'aborted'
                 self.votes[m['id']] = False
                 self.log()
-                # Tell everyone we've aborted.
                 self.send(self.alive, self.message_str())
-                # Tell master you've aborted.
                 self.send([-1], 'ack abort')
-            # Only accept yes votes if you're the coordinator
+
             if m['message'] == 'vote-yes' and self.id == self.coordinator:
                 self.votes[m['id']] = True
                 # Everybody has voted yes!
@@ -290,27 +222,6 @@ class Client:
                     else:
                         self.send(self.alive, self.message_str())
                         self.log()
-                    # Start waiting for acks.
                     self.p_t_acks.restart()
-            # Election protocol messages
-            if m['message'] == 'lets-elect-coordinator':
-                if self.stupid:
-                    self.message = 'i-am-stupid-for-election'
-                else:
-                    self.message = 'take-my-alive-list-for-election'
-                self.send([m['id']], self.message_str())
-            # Here we wait
-            if m['message'] == 'take-my-alive-list-for-election' or m['message'] == 'i-am-stupid-for-election':
-                self.num_messages_received_for_election += 1
-                l1 = self.alive
-                l2 = m['alive']
-                self.alive = [val for val in l1 if val in l2]
-                if len(self.election_alive_list) == self.num_messages_received_for_election:
-                    self.coordinator = min(self.alive)
-                    print(f'{bcolors.OKGREEN}pid = {self.id}, coord = {self.coordinator}{bcolors.ENDC}')
-                    if self.coordinator == self.id:
-                        # tell master about new coordinator
-                        print(f'{bcolors.OKGREEN}decided new coordinator: {str(self.id)}{bcolors.ENDC}')
-                        self.send([-1], 'coordinator ' + self.id)
 
-        print(f"{bcolors.OKGREEN}end receive{bcolors.ENDC}")
+        print(f"{bcolors.OKGREEN}End receive{bcolors.ENDC}")

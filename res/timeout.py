@@ -19,35 +19,36 @@ class Timeout(Thread):
 
                 if self.timeout <= 0:
                     if self.waiting_on == 'coordinator-vote-req':
-                        print(f'{bcolors.HEADER}timed out waiting for vote-req{bcolors.ENDC}')
+                        print(f'{bcolors.HEADER}Timed out waiting for vote-req{bcolors.ENDC}')
                         # Run re-election protocol
                         self.suspend()
                         res.globals.client.re_election_protocol()
                         self.timeout = res.globals.timeout_wait
 
                     elif self.waiting_on == 'coordinator-precommit':
-                        print(f'{bcolors.HEADER}timed out waiting for precommit{bcolors.ENDC}')
+                        print(f'{bcolors.HEADER}Timed out waiting for precommit{bcolors.ENDC}')
                         self.suspend()
                         # Run Termination protocol
                         self.timeout = res.globals.timeout_wait
 
                     elif self.waiting_on == 'process-vote':
                         self.suspend()
-                        print(f'{bcolors.HEADER}timed out waiting for votes{bcolors.ENDC}')
+                        print(f'{bcolors.HEADER}Timed out waiting for votes{bcolors.ENDC}')
                         # Send abort to all
 
                     elif self.waiting_on == 'process-acks':
                         self.suspend()
-                        print(f'{bcolors.HEADER}timed out waiting for acks{bcolors.ENDC}')
+                        print(f'{bcolors.HEADER}Timed out waiting for acks{bcolors.ENDC}')
                         # Send Commits to remaining processes
                         res.globals.client.after_timed_out_on_acks()
 
                     elif self.waiting_on == 'coordinator-commit':
                         self.suspend()
-                        print(f'{bcolors.HEADER}timed out waiting for commit{bcolors.ENDC}')
+                        print(f'{bcolors.HEADER}Timed out waiting for commit{bcolors.ENDC}')
                         # Termination protocol
 
     def reset(self):
+        print(f'{bcolors.HEADER}Time out set on {self.waiting_on} for {self.timeout}s{bcolors.ENDC}')
         self.timeout = res.globals.timeout_wait
 
     def restart(self):
