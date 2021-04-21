@@ -124,7 +124,9 @@ def main():
         if line == '':  # end of a file
             terminate()
         line = line.strip()  # remove trailing '\n'
-        if line == 'exit':  # exit when reading 'exit' command
+        if line == 'halt':  # exit when reading 'exit' command
+            for k in threads:
+                threads[k].send_str('crash')
             terminate()
         sp1 = line.split(None, 1)
         sp2 = line.split()

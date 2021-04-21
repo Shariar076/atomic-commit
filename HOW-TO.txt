@@ -28,10 +28,14 @@ exit
 
 
 Crashes:
-crash
+
 crashVoteREQ
 crashPartialCommit
+crashPartialPreCommit
 
+crash
+crashAfterVote
+crashAfterAck
 
 
 

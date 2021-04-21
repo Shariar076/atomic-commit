@@ -1,0 +1,22 @@
+# happy-path
+0 start 2 10001
+1 start 2 10002
+-1 add song1 URL1
+-1 add song2 URL2
+-1 delete song1
+1> vetonext
+-1 add song2 URL3
+-1 get song1
+-1 get song2
+exit
+
+
+# vetonext
+0 start 2 10001
+1 start 2 10002
+1> vetonext
+-1 add song1 url1
+-1 add song1 url2
+-1 add song1 url1
+-1 edit song1 url1
+

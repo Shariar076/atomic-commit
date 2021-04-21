@@ -16,7 +16,6 @@ class Timeout(Thread):
             if not self.__suspend__:
                 time.sleep(0.5)
                 self.timeout -= 0.5
-
                 if self.timeout <= 0:
                     # if self.waiting_on == 'coordinator-vote-req':
                     #     print(f'{bcolors.HEADER}Timed out waiting for vote-req{bcolors.ENDC}')
@@ -35,7 +34,7 @@ class Timeout(Thread):
                         self.suspend()
                         print(f'{bcolors.HEADER}Timed out waiting for votes{bcolors.ENDC}')
                         # Send abort to all
-                        res.globals.client.after_timed_out_on_vote)
+                        res.globals.client.after_timed_out_on_vote()
 
                     elif self.waiting_on == 'process-acks':
                         self.suspend()

@@ -34,7 +34,8 @@ def send_many(p_id_list, data):
             sock.connect((res.globals.address, res.globals.root_port + p_id))
             sock.send((str(data) + '\n').encode('utf-8'))
             sock.close()
-        except:
+        except Exception as ex:
+            # print(f"{bcolors.FAIL}Controller Received Exception at send_many: {ex}{bcolors.ENDC}")
             continue
         true_list.append(p_id)
     return true_list
@@ -49,7 +50,8 @@ def main():
     input_handler = InputHandler()
     process_timeout_vote = Timeout(res.globals.timeout_wait, 'process-vote')
     process_timeout_acks = Timeout(res.globals.timeout_wait, 'process-acks')
-
+    process_timeout_vote.start()
+    process_timeout_acks.start()
 
     try:
         mhandler = MasterHandler(pid, res.globals.address, myport)

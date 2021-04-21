@@ -75,6 +75,8 @@ class Client:
 
     def log(self):
         pass
+    def crash(self):
+        os._exit(1)
 
     def message_str(self):
         to_send = self.simple_dict()
@@ -108,7 +110,7 @@ class Client:
                         self.send(self.flags['crashVoteREQ'], self.message_str())
                         del self.flags['crashVoteREQ']
                         self.log()
-                        os._exit(1)
+                        self.crash()
                     else:
                         self.alive = self.broadcast()
                         print(f'{bcolors.OKGREEN}Self alive = {self.alive}{bcolors.ENDC}')
@@ -117,7 +119,7 @@ class Client:
                 else:
                     self.send([-1], 'ack abort')
             elif parts[0] == 'crash':
-                os._exit(1)
+                self.crash()
 
             elif parts[0] == 'get':
                 if parts[1] in self.data:
@@ -133,51 +135,6 @@ class Client:
         with self.lock:
             m = json.loads(s)
             print(bcolors.OKGREEN + 'Received from process: ' + json.dumps(m, indent=4) + bcolors.ENDC)
-
-            if m['message'] == 'abort' and self.transaction['state'] not in ['aborted', 'committed']:
-                self.transaction['state'] = 'aborted'
-                self.transaction_list.append(m['transaction'])
-                print(self.transaction_list)
-                self.log()
-
-            if m['message'] == 'ack' and self.id == self.coordinator and self.transaction['state'] == 'precommitted':
-                self.acks[m['id']] = True
-                if len(self.acks) == len(self.alive):
-                    self.p_t_acks.suspend()
-                    self.message = 'commit'
-                    self.log()
-                    if 'crashPartialCommit' in self.flags:
-                        self.send(self.flags['crashPartialCommit'], self.message_str())
-                        del self.flags['crashPartialCommit']
-                        os._exit(1)
-                    else:
-                        self.send(self.alive, self.message_str())
-                    self.send([-1], 'ack commit')
-
-            if m['message'] == 'commit' and self.transaction['state'] == 'precommitted':
-                m['transaction']['state'] = 'committed'
-                if m['transaction']['action'] == 'add':
-                    if m['transaction']['song'] not in self.data:
-                        self.data[m['transaction']['song']] = m['transaction']['URL']
-                        self.transaction_list.append(m['transaction'])
-
-                elif m['transaction']['action'] == 'edit':
-                    if m['transaction']['song'] in self.data:
-                        self.data[m['transaction']['song']] = m['transaction']['URL']
-                        self.transaction_list.append(m['transaction'])
-                else:
-                    del self.data[m['transaction']['song']]
-                    self.transaction_list.append(m['transaction'])
-                self.log()
-
-            if m['message'] == 'precommit':
-                self.message = 'ack'
-                self.transaction['state'] = 'precommitted'
-                self.send([self.coordinator], self.message_str())
-                self.log()
-                if 'crashAfterAck' in self.flags:
-                    del self.flags['crashAfterAck']
-                    os._exit(1)
 
             if m['message'] == 'state-req':
                 self.message = 'state-resp'
@@ -195,12 +152,15 @@ class Client:
 
             if m['message'] == 'vote-req':
                 print(f'{bcolors.OKGREEN}Received vote-req{bcolors.ENDC}')
+
+                if 'crashBeforeVote' in self.flags and self.id != self.coordinator:
+                    del self.flags['crashBeforeVote']
+                    self.crash()
+
                 self.transaction = m['transaction']
                 # self.alive = m['alive']
                 if 'vetonext' in self.flags:
                     self.message = 'vote-no'
-                    self.transaction['state'] = 'aborted'
-                    self.transaction_list.append(m['transaction'])
                     del self.flags['vetonext']
                 else:
                     print(f'{bcolors.OKGREEN}Voting yes{bcolors.ENDC}')
@@ -209,17 +169,7 @@ class Client:
                 self.send([m['id']], self.message_str())
                 if 'crashAfterVote' in self.flags and self.id != self.coordinator:
                     del self.flags['crashAfterVote']
-                    os._exit(1)
-
-            if m['message'] == 'vote-no' and self.id == self.coordinator:
-                self.p_t_vote.suspend()
-                self.message = 'abort'
-                self.transaction['state'] = 'aborted'
-                self.transaction_list.append(m['transaction'])
-                self.votes[m['id']] = False
-                self.log()
-                self.send(self.alive, self.message_str())
-                self.send([-1], 'ack abort')
+                    self.crash()
 
             if m['message'] == 'vote-yes' and self.id == self.coordinator:
                 self.votes[m['id']] = True
@@ -227,15 +177,72 @@ class Client:
                 if len(self.alive) == len(self.votes) and all(self.votes.values()):
                     self.p_t_vote.suspend()
                     self.message = 'precommit'
-                    self.transaction['state'] = 'precommitted'
                     if 'crashPartialPreCommit' in self.flags:
                         self.send(self.flags['crashPartialPreCommit'], self.message_str())
                         del self.flags['crashPartialPreCommit']
                         self.log()
-                        os._exit(1)
+                        self.crash()
                     else:
                         self.send(self.alive, self.message_str())
                         self.log()
                     self.p_t_acks.restart()
+
+            if m['message'] == 'vote-no' and self.id == self.coordinator:
+                self.p_t_vote.suspend()
+                self.message = 'abort'
+                self.votes[m['id']] = False
+                self.log()
+                self.send(self.alive, self.message_str())
+
+            if m['message'] == 'precommit':
+                self.message = 'ack'
+                self.transaction['state'] = 'precommitted'
+                self.send([self.coordinator], self.message_str())
+                self.log()
+                if 'crashAfterAck' in self.flags:
+                    del self.flags['crashAfterAck']
+                    self.crash()
+
+            if m['message'] == 'ack' and self.id == self.coordinator and self.transaction['state'] == 'precommitted':
+                self.acks[m['id']] = True
+                if len(self.acks) == len(self.alive):
+                    self.p_t_acks.suspend()
+                    self.message = 'commit'
+                    self.log()
+                    if 'crashPartialCommit' in self.flags:
+                        self.send(self.flags['crashPartialCommit'], self.message_str())
+                        del self.flags['crashPartialCommit']
+                        self.crash()
+                    else:
+                        self.send(self.alive, self.message_str())
+
+            if m['message'] == 'commit' and self.transaction['state'] == 'precommitted':
+                m['transaction']['state'] = 'committed'
+
+                if m['transaction']['action'] == 'add':
+                    if m['transaction']['song'] not in self.data:
+                        self.data[m['transaction']['song']] = m['transaction']['URL']
+                        self.transaction_list.append(m['transaction'])
+
+                elif m['transaction']['action'] == 'edit':
+                    if m['transaction']['song'] in self.data:
+                        self.data[m['transaction']['song']] = m['transaction']['URL']
+                        self.transaction_list.append(m['transaction'])
+                else:
+                    del self.data[m['transaction']['song']]
+                    self.transaction_list.append(m['transaction'])
+                self.log()
+                self.transaction['state'] = 'committed'
+                if self.id == self.coordinator:
+                    self.send([-1], 'ack commit')
+
+            if m['message'] == 'abort' and self.transaction['state'] not in ['aborted', 'committed']:
+                m['transaction']['state'] = 'aborted'
+
+                self.transaction_list.append(m['transaction'])
+                self.log()
+                self.transaction['state'] = 'aborted'
+                if self.id == self.coordinator:
+                    self.send([-1], 'ack abort')
 
         print(f"{bcolors.OKGREEN}End receive{bcolors.ENDC}")

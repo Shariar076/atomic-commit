@@ -25,5 +25,17 @@ class InputHandler(Thread):
             elif line == 'vetonext':
                 print(f"{bcolors.WARNING}Process will vote No on the next vote-req.{bcolors.ENDC}")
                 res.globals.client.flags['vetonext'] = True
+            elif line == 'crashBeforeVote':
+                print(f"{bcolors.WARNING}Process will crash before the next vote.{bcolors.ENDC}")
+                res.globals.client.flags['crashBeforeVote'] = True
+            elif line == 'crashAfterVote':
+                print(f"{bcolors.WARNING}Process will crash after the next vote.{bcolors.ENDC}")
+                res.globals.client.flags['crashAfterVote'] = True
+            elif line == 'crashAfterAck':
+                print(f"{bcolors.WARNING}Process will crash after the next ack.{bcolors.ENDC}")
+                res.globals.client.flags['crashAfterAck'] = True
+            elif line == 'crash':
+                print(f"{bcolors.WARNING}Process will crash immediately.{bcolors.ENDC}")
+                res.globals.client.crash()
             else:
                 print(f"{bcolors.WARNING}Unrecognized command: {line}.{bcolors.ENDC}")
