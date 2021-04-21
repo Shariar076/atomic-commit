@@ -1,7 +1,7 @@
 import json
 import os
 import threading
-
+from pprint import pprint
 from res.globals import bcolors
 
 
@@ -62,6 +62,12 @@ class Client:
             self.send(self.alive, self.message_str())
             self.log()
 
+    def after_timed_out_on_vote(self):
+        with self.lock:
+            self.message = 'abort'
+            self.send(self.alive, self.message_str())
+            self.log()
+
     def broadcast(self):
         recipients = range(self.N)  # PID of all processes.
         message = self.message_str()  # Serialize self.
@@ -79,11 +85,14 @@ class Client:
         print(f'{bcolors.OKGREEN}Current playlist of pid {self.id}: {self.data}{bcolors.ENDC}')
 
     def print_transactions(self):
-        print(f'{bcolors.OKGREEN}Current transactions by pid {self.id}: {self.transaction_list}{bcolors.ENDC}')
-
+        print(f'{bcolors.OKGREEN}Current transactions by pid {self.id}:')
+        for trans in self.transaction_list:
+            print(json.dumps(trans, indent=4))
+        print(bcolors.ENDC)
+        
     def receive_master(self, s):
-        print(f'{bcolors.OKGREEN}Received from master: {str(s)}{bcolors.ENDC}')
         with self.lock:
+            print(f'{bcolors.OKGREEN}Received from master: {str(s)}{bcolors.ENDC}')
             parts = s.split()
             if parts[0] in ['add', 'edit', 'delete']:
                 if self.coordinator == self.id:
@@ -121,12 +130,14 @@ class Client:
         print(f'{bcolors.OKGREEN}End receive_master{bcolors.ENDC}')
 
     def receive(self, s):
-        print(f'{bcolors.OKGREEN}{bcolors.BOLD}Received from process {s}{bcolors.ENDC}')
         with self.lock:
             m = json.loads(s)
+            print(bcolors.OKGREEN + 'Received from process: ' + json.dumps(m, indent=4) + bcolors.ENDC)
 
             if m['message'] == 'abort' and self.transaction['state'] not in ['aborted', 'committed']:
-                self.transaction['state'] = 'abort'
+                self.transaction['state'] = 'aborted'
+                self.transaction_list.append(m['transaction'])
+                print(self.transaction_list)
                 self.log()
 
             if m['message'] == 'ack' and self.id == self.coordinator and self.transaction['state'] == 'precommitted':
@@ -144,6 +155,7 @@ class Client:
                     self.send([-1], 'ack commit')
 
             if m['message'] == 'commit' and self.transaction['state'] == 'precommitted':
+                m['transaction']['state'] = 'committed'
                 if m['transaction']['action'] == 'add':
                     if m['transaction']['song'] not in self.data:
                         self.data[m['transaction']['song']] = m['transaction']['URL']
@@ -188,6 +200,7 @@ class Client:
                 if 'vetonext' in self.flags:
                     self.message = 'vote-no'
                     self.transaction['state'] = 'aborted'
+                    self.transaction_list.append(m['transaction'])
                     del self.flags['vetonext']
                 else:
                     print(f'{bcolors.OKGREEN}Voting yes{bcolors.ENDC}')
@@ -202,6 +215,7 @@ class Client:
                 self.p_t_vote.suspend()
                 self.message = 'abort'
                 self.transaction['state'] = 'aborted'
+                self.transaction_list.append(m['transaction'])
                 self.votes[m['id']] = False
                 self.log()
                 self.send(self.alive, self.message_str())

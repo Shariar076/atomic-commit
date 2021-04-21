@@ -20,6 +20,8 @@ class InputHandler(Thread):
             line = line.rstrip()
             if line == 'playlist':
                 res.globals.client.print_playlist()
+            elif line == 'actions':
+                res.globals.client.print_transactions()
             elif line == 'vetonext':
                 print(f"{bcolors.WARNING}Process will vote No on the next vote-req.{bcolors.ENDC}")
                 res.globals.client.flags['vetonext'] = True
