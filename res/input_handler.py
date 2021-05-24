@@ -25,6 +25,7 @@ class InputHandler(Thread):
             elif line == 'vetonext':
                 print(f"{bcolors.WARNING}Process will vote No on the next vote-req.{bcolors.ENDC}")
                 res.globals.client.flags['vetonext'] = True
+
             elif line == 'crashBeforeVote':
                 print(f"{bcolors.WARNING}Process will crash before the next vote.{bcolors.ENDC}")
                 res.globals.client.flags['crashBeforeVote'] = True
@@ -34,6 +35,17 @@ class InputHandler(Thread):
             elif line == 'crashAfterAck':
                 print(f"{bcolors.WARNING}Process will crash after the next ack.{bcolors.ENDC}")
                 res.globals.client.flags['crashAfterAck'] = True
+
+            elif line == 'crashVoteReq':
+                print(f"{bcolors.WARNING}Cordinator will crash before the next vote-req.{bcolors.ENDC}")
+                res.globals.client.flags['crashVoteReq'] = True
+            elif line == 'crashPartialPreCommit':
+                print(f"{bcolors.WARNING}Cordinator will crash before the next precommit.{bcolors.ENDC}")
+                res.globals.client.flags['crashPartialPreCommit'] = True
+            elif line == 'crashPartialCommit':
+                print(f"{bcolors.WARNING}Cordinator will crash after the next commit.{bcolors.ENDC}")
+                res.globals.client.flags['crashPartialCommit'] = True
+
             elif line == 'crash':
                 print(f"{bcolors.WARNING}Process will crash immediately.{bcolors.ENDC}")
                 res.globals.client.crash()

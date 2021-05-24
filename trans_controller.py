@@ -19,26 +19,26 @@ def kill_ps_on_port(port):
     except:
         pass
 
-def send_many(p_id_list, data):
-    print(f'{bcolors.OKCYAN}Send_many being called by {str(p_id_list)}{bcolors.ENDC}')
-    true_list = []
-    for p_id in p_id_list:
-        print(f'{bcolors.OKCYAN}Sending to {p_id}{bcolors.ENDC}')
-        if p_id == -1:
-            res.globals.outgoing_conns[p_id].send_str(data)
-            true_list.append(p_id)
-            continue
-
-        try:
-            sock = socket(AF_INET, SOCK_STREAM)
-            sock.connect((res.globals.address, res.globals.root_port + p_id))
-            sock.send((str(data) + '\n').encode('utf-8'))
-            sock.close()
-        except Exception as ex:
-            # print(f"{bcolors.FAIL}Controller Received Exception at send_many: {ex}{bcolors.ENDC}")
-            continue
-        true_list.append(p_id)
-    return true_list
+# def send_many(p_id_list, data):
+#     print(f'{bcolors.OKCYAN}Send_many being called by {str(p_id_list)}{bcolors.ENDC}')
+#     true_list = []
+#     for p_id in p_id_list:
+#         print(f'{bcolors.OKCYAN}Sending to {p_id}{bcolors.ENDC}')
+#         if p_id == -1:
+#             res.globals.outgoing_conns[p_id].send_str(data)
+#             true_list.append(p_id)
+#             continue
+#
+#         try:
+#             sock = socket(AF_INET, SOCK_STREAM)
+#             sock.connect((res.globals.address, res.globals.root_port + p_id))
+#             sock.send((str(data) + '\n').encode('utf-8'))
+#             sock.close()
+#         except Exception as ex:
+#             # print(f"{bcolors.FAIL}Controller Received Exception at send_many: {ex}{bcolors.ENDC}")
+#             continue
+#         true_list.append(p_id)
+#     return true_list
 
 
 def main():
@@ -50,8 +50,14 @@ def main():
     input_handler = InputHandler()
     process_timeout_vote = Timeout(res.globals.timeout_wait, 'process-vote')
     process_timeout_acks = Timeout(res.globals.timeout_wait, 'process-acks')
+    coordinator_timeout_vote_req = Timeout(res.globals.timeout_vote_req, 'coordinator-vote-req')
+    coordinator_timeout_precommit = Timeout(res.globals.timeout_wait, 'coordinator-precommit')
+    coordinator_timeout_commit = Timeout(res.globals.timeout_wait, 'coordinator-commit')
     process_timeout_vote.start()
     process_timeout_acks.start()
+    coordinator_timeout_vote_req.start()
+    coordinator_timeout_precommit.start()
+    coordinator_timeout_commit.start()
 
     try:
         mhandler = MasterHandler(pid, res.globals.address, myport)
@@ -66,7 +72,8 @@ def main():
     input_handler.start()
     worker.start()
 
-    res.globals.client = Client(pid, num_processes, send_many, process_timeout_vote, process_timeout_acks)
+    res.globals.client = Client(pid, num_processes, process_timeout_vote, process_timeout_acks,
+                                coordinator_timeout_vote_req, coordinator_timeout_precommit, coordinator_timeout_commit)
     print(f"{bcolors.OKCYAN}Client has been inited{bcolors.ENDC}")
     res.globals.client.load_state()
 

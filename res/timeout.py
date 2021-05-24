@@ -17,19 +17,6 @@ class Timeout(Thread):
                 time.sleep(0.5)
                 self.timeout -= 0.5
                 if self.timeout <= 0:
-                    # if self.waiting_on == 'coordinator-vote-req':
-                    #     print(f'{bcolors.HEADER}Timed out waiting for vote-req{bcolors.ENDC}')
-                    #     # Run re-election protocol
-                    #     self.suspend()
-                    #     res.globals.client.re_election_protocol()
-                    #     self.timeout = res.globals.timeout_wait
-                    #
-                    # elif self.waiting_on == 'coordinator-precommit':
-                    #     print(f'{bcolors.HEADER}Timed out waiting for precommit{bcolors.ENDC}')
-                    #     self.suspend()
-                    #     # Run Termination protocol
-                    #     self.timeout = res.globals.timeout_wait
-
                     if self.waiting_on == 'process-vote':
                         self.suspend()
                         print(f'{bcolors.HEADER}Timed out waiting for votes{bcolors.ENDC}')
@@ -42,14 +29,31 @@ class Timeout(Thread):
                         # Send Commits to remaining processes
                         res.globals.client.after_timed_out_on_acks()
 
-                    # elif self.waiting_on == 'coordinator-commit':
-                    #     self.suspend()
-                    #     print(f'{bcolors.HEADER}Timed out waiting for commit{bcolors.ENDC}')
-                        # Termination protocol
+                    elif self.waiting_on == 'coordinator-vote-req':
+                        print(f'{bcolors.HEADER}Timed out waiting for vote-req{bcolors.ENDC}')
+                        # Run re-election protocol
+                        self.suspend()
+                        res.globals.client.re_election_protocol()
+                        self.timeout = res.globals.timeout_vote_req
+
+                    elif self.waiting_on == 'coordinator-precommit':
+                        print(f'{bcolors.HEADER}Timed out waiting for precommit{bcolors.ENDC}')
+                        self.suspend()
+                        res.globals.client.re_election_protocol()
+                        self.timeout = res.globals.timeout_wait
+
+                    elif self.waiting_on == 'coordinator-commit':
+                        print(f'{bcolors.HEADER}Timed out waiting for commit{bcolors.ENDC}')
+                        self.suspend()
+                        res.globals.client.re_election_protocol()
+                        self.timeout = res.globals.timeout_wait
 
     def reset(self):
+        if self.waiting_on  == 'coordinator-vote-req':
+            self.timeout = res.globals.timeout_vote_req
+        else:
+            self.timeout = res.globals.timeout_wait
         print(f'{bcolors.HEADER}Time out set on {self.waiting_on} for {self.timeout}s{bcolors.ENDC}')
-        self.timeout = res.globals.timeout_wait
 
     def restart(self):
         self.reset()

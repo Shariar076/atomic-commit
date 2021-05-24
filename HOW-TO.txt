@@ -29,13 +29,14 @@ exit
 
 Crashes:
 
-crashVoteREQ
-crashPartialCommit
-crashPartialPreCommit
+crashVoteReq -> vote-req timeout
+crashPartialPreCommit -> precommit timeout
+crashPartialCommit -> commit timeout
 
 crash
-crashAfterVote
-crashAfterAck
+crashBeforeVote -> vote timeout
+crashAfterVote -> ack timeout
+crashAfterAck -> no timeout
 
 
 

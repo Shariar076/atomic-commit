@@ -8,6 +8,7 @@ outgoing_conns = dict()
 my_pid = -2
 
 timeout_wait = 5
+timeout_vote_req = 30
 
 class bcolors:
     HEADER = '\033[95m'
