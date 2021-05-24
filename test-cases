@@ -8,7 +8,7 @@
 -1 edit song2 URL3
 -1 get song1
 -1 get song2
-exit
+halt
 
 
 #2 if song exists add will have no effect on playlist edit will
@@ -42,7 +42,7 @@ exit
 2> crashAfterVote
 -1 delete song3
 
-#7 no timeout will occur action will be committed
+#7 crashAfterAck no timeout will occur action will be committed
 2 start 4 10002
 2> crashAfterAck
 -1 add song3 url3

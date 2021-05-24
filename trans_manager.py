@@ -305,6 +305,7 @@ class Client:
                         # tell master about new coordinator
                         print(f'{bcolors.OKGREEN}This process is the new coordinator: {str(self.id)}{bcolors.ENDC}')
                         self.send_data([-1], f'coordinator {self.id}')
+                        # Termination Protocol
                         if self.transaction['state'] == 'precommitted':
                             self.message = 'commit'
                             self.send_data(self.alive, self.message_str())
