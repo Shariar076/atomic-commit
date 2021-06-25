@@ -43,7 +43,7 @@ class InputHandler(Thread):
                 print(f"{bcolors.WARNING}Cordinator will crash before the next precommit.{bcolors.ENDC}")
                 res.globals.client.flags['crashPartialPreCommit'] = True
             elif line == 'crashPartialCommit':
-                print(f"{bcolors.WARNING}Cordinator will crash after the next commit.{bcolors.ENDC}")
+                print(f"{bcolors.WARNING}Cordinator will crash before the next commit.{bcolors.ENDC}")
                 res.globals.client.flags['crashPartialCommit'] = True
 
             elif line == 'crash':

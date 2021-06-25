@@ -1,6 +1,7 @@
 #1 happy-path
 0 start 4 10000
 1 start 4 10001
+2 start 4 10002
 -1 add song1 URL1
 -1 add song2 URL2
 -1 delete song1
@@ -26,7 +27,7 @@ halt
 1> actions
 
 #4 new process is added playlist will be latest actions empty
-2 start 4 10002
+3 start 4 10002
 2> playlist
 2> actions
 
@@ -61,4 +62,21 @@ halt
 #10 crashPartialCommit coordinator_timeout_commit will occur re-election and termination_protocol will decide commit
 -1> crashPartialCommit
 -1 delete song3
+
+
+
+
+
+Crashes:
+
+crashVoteReq -> vote-req timeout
+crashPartialPreCommit -> precommit timeout
+crashPartialCommit -> commit timeout
+
+crash
+crashBeforeVote -> vote timeout
+crashAfterVote -> ack timeout
+crashAfterAck -> no timeout
+
+
 
