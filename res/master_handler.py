@@ -1,5 +1,5 @@
-import sys
-from socket import socket, AF_INET, SOCK_STREAM
+import sys, os
+from socket import socket, AF_INET, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR
 from threading import Thread
 from res.globals import bcolors
 import res.globals
@@ -10,6 +10,7 @@ class MasterHandler(Thread):
         Thread.__init__(self)
         self.index = index
         self.sock = socket(AF_INET, SOCK_STREAM)
+        self.sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
         self.sock.bind((address, port))
         self.sock.listen(1)
         self.conn, self.addr = self.sock.accept()
@@ -41,5 +42,5 @@ class MasterHandler(Thread):
         try:
             self.valid = False
             self.sock.close()
-        except:
-            pass
+        except Exception as ex:
+            print(f"{bcolors.FAIL}MasterHandler Received Exception while closing socket : {ex}{bcolors.ENDC}")

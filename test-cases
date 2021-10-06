@@ -1,0 +1,82 @@
+#1 happy-path
+0 start 4 10000
+1 start 4 10001
+2 start 4 10002
+-1 add song1 URL1
+-1 add song2 URL2
+-1 delete song1
+1> vetonext
+-1 edit song2 URL3
+-1 get song1
+-1 get song2
+halt
+
+
+#2 if song exists add will have no effect on playlist edit will
+-1 add song1 url2
+-1 edit song1 url2
+
+#3 if song doesn't exists edit will have no effect on playlist add will
+-1 edit song3 url3
+-1 add song3 url3
+
+# playlist
+1> playlist
+
+# actions
+1> actions
+
+#4 new process is added playlist will be latest actions empty
+3 start 4 10002
+2> playlist
+2> actions
+
+
+#################################### process crash/timeout ####################################
+
+#5 crashBeforeVote vote_timeout will occur action will be aborted
+2> crashBeforeVote
+-1 delete song3
+
+#6 crashAfterVote vote_ack will occur action will be committed
+2 start 4 10002
+2> crashAfterVote
+-1 delete song3
+
+#7 crashAfterAck no timeout will occur action will be committed
+2 start 4 10002
+2> crashAfterAck
+-1 add song3 url3
+
+
+#################################### coordination crash/timeout ####################################
+
+#8 crashVoteReq coordinator_timeout_vote_req will occur re-election and termination_protocol  will decide abort
+-1> crashVoteReq
+-1 delete song3
+
+#9 crashPartialPreCommit coordinator_timeout_precommit will occur re-election and termination_protocol will decide abort
+-1> crashPartialPreCommit
+-1 delete song3
+
+#10 crashPartialCommit coordinator_timeout_commit will occur re-election and termination_protocol will decide commit
+-1> crashPartialCommit
+-1 delete song3
+
+
+
+
+
+Crashes:
+
+crashVoteReq -> vote-req timeout
+crashPartialPreCommit -> precommit timeout
+crashPartialCommit -> commit timeout
+
+crash
+crashBeforeVote -> vote timeout
+crashAfterVote -> ack timeout
+crashAfterAck -> no timeout
+
+
+

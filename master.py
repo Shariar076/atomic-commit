@@ -97,7 +97,7 @@ def send(index, data, set_wait_ack=False):
     threads[pid].send_str(data)
 
 
-def exit():
+def terminate():
     global threads, wait_ack
 
     wait = wait_ack
@@ -105,7 +105,7 @@ def exit():
         time.sleep(0.01)
         wait = wait_ack
 
-    time.sleep(2)
+    time.sleep(0.1)
     for k in threads:
         threads[k].close()
     # subprocess.Popen(['./stopall'], stdout=open('/dev/null'), stderr=open('/dev/null'))
@@ -120,12 +120,14 @@ def main():
         try:
             line = sys.stdin.readline()
         except:  # keyboard exception, such as Ctrl+C/D
-            exit()
+            terminate()
         if line == '':  # end of a file
-            exit()
+            terminate()
         line = line.strip()  # remove trailing '\n'
-        if line == 'exit':  # exit when reading 'exit' command
-            exit()
+        if line == 'halt':  # exit when reading 'exit' command
+            for k in threads:
+                threads[k].send_str('crash')
+            terminate()
         sp1 = line.split(None, 1)
         sp2 = line.split()
         if len(sp1) != 2:  # validate input
@@ -138,8 +140,6 @@ def main():
             if leader == -1:
                 leader = pid
             live_list[pid] = True
-            # subprocess.Popen(['./process', str(pid), sp2[2], sp2[3]], stdout=open('/dev/null'), stderr=open('/dev/null'))
-            # sleep for a while to allow the process be ready
             time.sleep(1)
             # connect to the port of the pid
             handler = ClientHandler(pid, address, port)
@@ -147,7 +147,7 @@ def main():
             handler.start()
         elif cmd == 'get':
             send(pid, sp1[1], set_wait_ack=True)
-        elif cmd == 'add' or cmd == 'delete':
+        elif cmd in ['add', 'edit', 'delete']:
             send(pid, sp1[1], set_wait_ack=True)
             for c in crash_later:
                 live_list[c] = False
@@ -162,9 +162,9 @@ def main():
             if pid == -1:
                 pid = leader
             crash_later.append(pid)
-        elif cmd == 'vote':
-            send(pid, sp1[1])
-        time.sleep(1)
+        # elif cmd == 'vote':
+        #     send(pid, sp1[1])
+        time.sleep(.1)
 
 
 if __name__ == '__main__':

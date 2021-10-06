@@ -1,18 +1,13 @@
-How to run functinal.input
+How to run 
 
 terminal-1:
-source venv/bin/activate
-cd submission/ana63_dm635/src/
-python process.py 0 2 10002
+trans_controller.py 0 2 10001
 
 terminal-2:
-source venv/bin/activate
-cd submission/ana63_dm635/src/
-python process.py 1 2 10003
+trans_controller.py 1 2 10002
 
 
 terminal-3(master):
-source venv/bin/activate
 python master.py 
 
 0 start 2 10001
@@ -27,6 +22,3 @@ python master.py
 exit
 
 
-
-
-awesome !!
